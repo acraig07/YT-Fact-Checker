@@ -1,7 +1,21 @@
+import os
+from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
+# from youtube_transcript_api.proxies import WebshareProxyConfig
+import googleapiclient.discovery
 import re
+import isodate
 
-# Checks if URL is in a valid format
+
+load_dotenv()
+api_service_name = "youtube"
+api_version = "v3"
+DEVELOPER_KEY = os.getenv('YOUTUBE_API_KEY')
+# PROXY_USERNAME = os.getenv("PROXY_USERNAME")
+# PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
+
+youtube = googleapiclient.discovery.build(api_service_name, api_version, developerKey=DEVELOPER_KEY)
+
 def checkURL(url):
     pattern = r"^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$"
 
@@ -9,21 +23,52 @@ def checkURL(url):
     match = regex.match(url)
 
     if match:
-        getTranscript(match.group(6)) # group #6 has the id for the video
-        return True
+
+        video_id = match.group(6)
+
+        requestDuration = youtube.videos().list(
+            part="contentDetails",
+            id=video_id
+        )
+        responseDuration = requestDuration.execute()
+
+        duration_iso = responseDuration['items'][0]['contentDetails']['duration']
+        duration_timedelta = isodate.parse_duration(duration_iso)
+        total_seconds = int(duration_timedelta.total_seconds())
+
+        if total_seconds > 1200:
+            return False, 401
+
+
+        requestLanguage = youtube.captions().list(
+            part="snippet",
+            videoId=video_id
+        )
+
+        responseLanguage = requestLanguage.execute()
+
+        for item in responseLanguage.get('items', []):
+            if item.get('snippet', {}).get('language') == 'en':
+                return True, video_id
+
+        return False, 402
     else:
-        return False
+        return False, 403
 
 def getTranscript(videoID):
 
-    # using the srt variable with the list of dictionaries
-    # obtained by the .get_transcript() function
-    srt = YouTubeTranscriptApi.get_transcript(videoID) # need to setup EN language only still
+    # USE THE BELOW CODE IF IP BLOCKED FROM YT, UN COMMENT OUT .env VARIABLES AT TOP OF FILE AND LIBRARY IMPORT.
+    # SEE WORKING AROUND IP BANS SECTION. https://pypi.org/project/youtube-transcript-api/
 
-    # temporarily creating or overwriting a file "subtitles.txt" with
-    # the info inside the context manager
-    with open("subtitles.txt", "w") as f:
-        # iterating through each element of list srt
-        for i in srt:
-            # writing each element of srt on a new line
-            f.write("{}\n".format(i))
+    # ytt_api = YouTubeTranscriptApi(
+    #     proxy_config=WebshareProxyConfig(
+    #         proxy_username=PROXY_USERNAME,
+    #         proxy_password=PROXY_PASSWORD,
+    #     )
+    # )
+
+    ytt_api = YouTubeTranscriptApi()
+    transcript = ytt_api.fetch(videoID, languages=['en'])
+    transcript = transcript.to_raw_data()
+    transcriptString = str(transcript)
+    return transcriptString

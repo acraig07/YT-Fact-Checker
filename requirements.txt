@@ -1,2 +1,15 @@
-streamlit
-youtube-transcript-api
+streamlit~=1.46.1
+pandas~=2.2.3
+youtube-transcript-api~=1.1.1
+google-api-python-client~=2.161.0
+google-genai
+dotenv~=0.9.9
+sentence-transformers~=3.4.1
+openai
+groq~=0.20.0
+numpy==1.26.4
+python-dotenv~=1.0.1
+protobuf~=5.29.3
+anthropic~=0.55.0
+torch~=2.6.0
+isodate~=0.7.2
